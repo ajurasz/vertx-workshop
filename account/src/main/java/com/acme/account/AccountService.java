@@ -1,5 +1,9 @@
 package com.acme.account;
 
+import javax.security.auth.login.AccountNotFoundException;
+
+import io.vertx.codegen.annotations.ProxyGen;
+import io.vertx.codegen.annotations.VertxGen;
 import io.vertx.core.AsyncResult;
 import io.vertx.core.Handler;
 import io.vertx.core.Vertx;
@@ -12,7 +16,8 @@ import io.vertx.serviceproxy.ServiceProxyBuilder;
  * * createAccount - create a new account on the database
  * * wireTransfer - update 2 account balances by moving funds across them
  */
-// TODO: (REFACTOR #2) Add the missing annotations for codegen
+@VertxGen
+@ProxyGen
 public interface AccountService {
 
   String DEFAULT_ADDRESS = "com.acme.account.service";
@@ -30,9 +35,9 @@ public interface AccountService {
       .build(AccountService.class);
   }
 
-  // TODO: (REFACTOR #2) refactor the acme.bank.service.account.AccountService#getAccount(String) method to be reactive
+  void getAccount(String accountId, Handler<AsyncResult<Account>> handler);
 
-  // TODO: (REFACTOR #2) refactor the acme.bank.service.account.AccountService#createAccount(int) method to be reactive
+  void createAccount(int initialBalance, Handler<AsyncResult<String>> handler);
 
   /**
    * Transfer funds between accounts.

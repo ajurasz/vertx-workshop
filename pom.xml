@@ -21,12 +21,11 @@
 
   <modules>
     <!-- Add all services as modules to simplify the build process -->
-    <module>monolith</module>
+    <!--<module>monolith</module>-->
     <module>db</module>
-    <!-- TODO: Add the newly services here -->
-    <!-- TODO: REFACTOR #1 -->
-    <!-- TODO: REFACTOR #6 -->
-    <!-- TODO: REFACTOR #9 -->
+    <module>account</module>
+    <module>transaction</module>
+    <module>web</module>
   </modules>
 
 </project>

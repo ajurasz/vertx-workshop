@@ -1,5 +1,8 @@
 package com.acme.account;
 
+import com.acme.account.AccountConverter;
+
+import io.vertx.codegen.annotations.DataObject;
 import io.vertx.core.json.JsonObject;
 
 /**
@@ -8,7 +11,7 @@ import io.vertx.core.json.JsonObject;
  * * id a unique string
  * * balance the current balance on the account.
  */
-// TODO: (REFACTOR #3) add the missing annotations for codegen
+@DataObject(generateConverter = true)
 public class Account {
 
   /**
@@ -25,12 +28,12 @@ public class Account {
   }
 
   public Account(JsonObject json) {
-    // TODO: (REFACTOR #3) convert from json to Account (Tip! codegen will help)
+    AccountConverter.fromJson(json, this);
   }
 
   public JsonObject toJson() {
     final JsonObject json = new JsonObject();
-    // TODO: (REFACTOR #3) convert from Account to json (Tip! codegen will help)
+    AccountConverter.toJson(this, json);
     return json;
   }
 

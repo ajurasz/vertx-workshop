@@ -5,9 +5,12 @@ import io.vertx.core.Vertx;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.unit.Async;
 import io.vertx.ext.unit.TestContext;
+import io.vertx.ext.unit.junit.VertxUnitRunner;
+
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
+import org.junit.runner.RunWith;
 
 /**
  * The test assumes you're running the database server in the background, please ensure that:
@@ -16,7 +19,7 @@ import org.junit.Test;
  *
  * was executed.
  */
-// TODO: (REFACTOR #5) add the vert.x junit runner
+@RunWith(VertxUnitRunner.class)
 public class AccountServiceTest {
 
   // keep a vertx instance to control deployments
@@ -47,14 +50,14 @@ public class AccountServiceTest {
 
   @Test
   public void testCreateAccount(TestContext context) {
-    // TODO: (REFACTOR #5) create an AccountService proxy (Tip! use the interface)
-
+    AccountService accountService = AccountService.createProxy(vertx, AccountService.DEFAULT_ADDRESS);
     final Async test = context.async();
+    accountService.createAccount(11, createAccount -> {
+      context.assertFalse(createAccount.failed());
+      context.assertNotNull(createAccount.result());
 
-    // TODO: (REFACTOR #5) create an account and assert that it is successful
-
-    // Tip! assertions should be run against the context
-    // Tip! don't forget to call test.complete()
+      test.complete();
+    });
   }
 
   @Test

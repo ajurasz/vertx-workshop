@@ -32,7 +32,12 @@
       <artifactId>vertx-codegen</artifactId>
       <version>3.5.0</version>
     </dependency>
-    <!-- TODO: (REFACTOR #7) add the missing dependencies here -->
+    <dependency>
+      <groupId>com.acme</groupId>
+      <artifactId>account</artifactId>
+      <version>1.0.0</version>
+      <classifier>api</classifier>
+    </dependency>
     <dependency>
       <groupId>io.vertx</groupId>
       <artifactId>vertx-service-proxy</artifactId>

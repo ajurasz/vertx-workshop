@@ -1,5 +1,6 @@
 package com.acme.transaction.impl;
 
+import com.acme.account.AccountService;
 import com.acme.transaction.Transaction;
 import com.acme.transaction.TransactionService;
 
@@ -20,7 +21,7 @@ import static com.acme.transaction.Transaction.Status.*;
 public class TransactionServiceImpl implements TransactionService {
 
   private final JDBCClient db;
-  // TODO: (REFACTOR #8) add a private variable of type AccountService
+  private final AccountService accountService;
 
   public TransactionServiceImpl(Vertx vertx, JsonObject config) {
     // initialization...
@@ -33,7 +34,7 @@ public class TransactionServiceImpl implements TransactionService {
         .put("password", config.getString("DBPASSWORD"))
         .put("max_pool_size", 30));
 
-    // TODO: (REFACTOR #8) create a proxy using the default address (Tip! use the interface)
+    accountService = AccountService.createProxy(vertx, AccountService.DEFAULT_ADDRESS);
   }
 
   @Override
@@ -94,24 +95,23 @@ public class TransactionServiceImpl implements TransactionService {
   }
 
   private void processTransaction(Transaction transaction, Handler<AsyncResult<UpdateResult>> done) {
-//    // TODO: (REFACTOR #8) uncomment me!
-//    accountService.wireTransfer(transaction.getSource(), transaction.getTarget(), transaction.getAmount(), wireTransfer -> {
-//      if (wireTransfer.failed()) {
-//        if (wireTransfer.cause() instanceof ServiceException) {
-//          switch (((ServiceException) wireTransfer.cause()).failureCode()) {
-//            case 404:
-//              db.updateWithParams("UPDATE transactions SET status = ? WHERE id = ?", new JsonArray().add(ACCOUNT_NOT_FOUND).add(transaction.getId()), done);
-//              return;
-//            case 412:
-//              db.updateWithParams("UPDATE transactions SET status = ? WHERE id = ?", new JsonArray().add(INSUFFICIENT_FUNDS).add(transaction.getId()), done);
-//              return;
-//          }
-//        }
-//        done.handle(Future.failedFuture(wireTransfer.cause()));
-//      } else {
-//        db.updateWithParams("UPDATE transactions SET status = ? WHERE id = ?", new JsonArray().add(CONFIRMED).add(transaction.getId()), done);
-//      }
-//    });
+    accountService.wireTransfer(transaction.getSource(), transaction.getTarget(), transaction.getAmount(), wireTransfer -> {
+      if (wireTransfer.failed()) {
+        if (wireTransfer.cause() instanceof ServiceException) {
+          switch (((ServiceException) wireTransfer.cause()).failureCode()) {
+            case 404:
+              db.updateWithParams("UPDATE transactions SET status = ? WHERE id = ?", new JsonArray().add(ACCOUNT_NOT_FOUND).add(transaction.getId()), done);
+              return;
+            case 412:
+              db.updateWithParams("UPDATE transactions SET status = ? WHERE id = ?", new JsonArray().add(INSUFFICIENT_FUNDS).add(transaction.getId()), done);
+              return;
+          }
+        }
+        done.handle(Future.failedFuture(wireTransfer.cause()));
+      } else {
+        db.updateWithParams("UPDATE transactions SET status = ? WHERE id = ?", new JsonArray().add(CONFIRMED).add(transaction.getId()), done);
+      }
+    });
   }
 
   public void close() {

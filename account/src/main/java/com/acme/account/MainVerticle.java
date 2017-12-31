@@ -2,6 +2,7 @@ package com.acme.account;
 
 import com.acme.account.impl.AccountServiceImpl;
 
+import io.vertx.config.ConfigRetriever;
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.Future;
 import io.vertx.serviceproxy.ServiceBinder;
@@ -12,15 +13,19 @@ public class MainVerticle extends AbstractVerticle {
 
   @Override
   public void start(Future<Void> future) throws Exception {
-    // TODO: (REFACTOR #12) create a config retriever
+    ConfigRetriever retriever = ConfigRetriever.create(vertx);
+    retriever.getConfig(getConfig -> {
+      if (getConfig.failed()) {
+        future.fail(getConfig.cause());
+      } else {
+        service = new AccountServiceImpl(vertx, config());
+        new ServiceBinder(vertx)
+          .setAddress(AccountService.DEFAULT_ADDRESS)
+          .register(AccountService.class, service);
 
-    // TODO: (REFACTOR #12) use the getConfig method to load the config and pass to the service
-    service = new AccountServiceImpl(vertx, config());
-    new ServiceBinder(vertx)
-      .setAddress(AccountService.DEFAULT_ADDRESS)
-      .register(AccountService.class, service);
-
-    future.complete();
+        future.complete();
+      }
+    });
   }
 
   @Override

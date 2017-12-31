@@ -4,6 +4,7 @@ import com.acme.account.Account;
 import com.acme.account.AccountService;
 
 import io.vertx.core.AsyncResult;
+import io.vertx.core.CompositeFuture;
 import io.vertx.core.Future;
 import io.vertx.core.Handler;
 import io.vertx.core.Vertx;
@@ -11,6 +12,7 @@ import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.jdbc.JDBCClient;
 import io.vertx.ext.sql.SQLConnection;
+import io.vertx.ext.sql.UpdateResult;
 import io.vertx.serviceproxy.ServiceException;
 
 import java.util.UUID;
@@ -55,12 +57,14 @@ public class AccountServiceImpl implements AccountService {
 
   public void createAccount(int initialBalance, Handler<AsyncResult<String>> handler) {
     String id = UUID.randomUUID().toString();
+    db.updateWithParams("INSERT INTO accounts (id, balance) VALUES (?, ?)", new JsonArray().add(id).add(initialBalance), update -> {
+      if (update.failed()) {
+        handler.handle(Future.failedFuture(update.cause()));
+        return;
+      }
 
-    // TODO: (REFACTOR #4) implement me!
-
-    // use the db object to perform an INSERT
-    // the statement to use is: "INSERT INTO accounts (id, balance) VALUES (?, ?)"
-    // handle the result of the update and delegate it to the handler
+      handler.handle(Future.succeededFuture(id));
+    });
   }
 
   /**
@@ -158,60 +162,59 @@ public class AccountServiceImpl implements AccountService {
 
       final SQLConnection conn = startTransaction.result();
 
-      // get from and to accounts
-      conn.querySingleWithParams("SELECT id, balance FROM accounts WHERE id = ?", new JsonArray().add(fromAccountId), query1 -> {
-        if (query1.failed()) {
-          rollbackAndReturn(conn, query1.cause(), handler);
+      Future<JsonArray> getFromAccount = Future.future(f ->
+          conn.querySingleWithParams(
+            "SELECT id, balance FROM accounts WHERE id = ?",
+            new JsonArray().add(fromAccountId),
+            f.completer()));
+
+      Future<JsonArray> getToAccount = Future.future(f ->
+          conn.querySingleWithParams(
+            "SELECT id, balance FROM accounts WHERE id = ?",
+            new JsonArray().add(toAccountId),
+            f.completer()));
+
+      CompositeFuture.all(getFromAccount, getToAccount).setHandler(ar -> {
+        if (ar.failed()) {
+          rollbackAndReturn(conn, ar.cause(), handler);
           return;
         }
 
-        final JsonArray row1 = query1.result();
-
-        if (row1 == null) {
+        final JsonArray row1 = getFromAccount.result();
+        final JsonArray row2 = getToAccount.result();
+        if (row1 == null || row2 == null) {
           rollbackAndReturn(conn, 404, "Account Not Found: " + fromAccountId, handler);
           return;
         }
 
-        final Account from = new Account();
-        from.setId(row1.getString(0));
-        from.setBalance(row1.getInteger(1));
+        // verify if the account has enough funds
+        if (row1.getInteger(1) < amount) {
+          rollbackAndReturn(conn, 412, "Insufficient Funds: " + fromAccountId + " [" + amount + "]", handler);
+          return;
+        }
 
-        conn.querySingleWithParams("SELECT id, balance FROM accounts WHERE id = ?", new JsonArray().add(toAccountId), query2 -> {
-          if (query2.failed()) {
-            rollbackAndReturn(conn, query2.cause(), handler);
+        Future<UpdateResult> updateFromAccount = Future.future(f ->
+            conn.updateWithParams(
+              "UPDATE accounts SET balance = balance - ? WHERE id = ?",
+              new JsonArray().add(amount).add(fromAccountId),
+              f.completer()));
+
+        Future<UpdateResult> updateToAccount = Future.future(f ->
+            conn.updateWithParams(
+              "UPDATE accounts SET balance = balance + ? WHERE id = ?",
+              new JsonArray().add(amount).add(toAccountId),
+              f.completer()));
+
+        CompositeFuture.all(updateFromAccount, updateToAccount).setHandler(ar2 -> {
+          if (ar2.failed()) {
+            rollbackAndReturn(conn, ar2.cause(), handler);
             return;
           }
 
-          final JsonArray row2 = query2.result();
-
-          if (row2 == null) {
-            rollbackAndReturn(conn, 404,"Account Not Found: " + toAccountId, handler);
-            return;
-          }
-
-          // verify if the account has enough funds
-          if (from.getBalance() < amount) {
-            rollbackAndReturn(conn, 412, "Insufficient Funds: " + fromAccountId + " [" + amount + "]", handler);
-            return;
-          }
-
-          conn.updateWithParams("UPDATE accounts SET balance = balance - ? WHERE id = ?", new JsonArray().add(amount).add(fromAccountId), update1 -> {
-            if (update1.failed()) {
-              rollbackAndReturn(conn, update1.cause(), handler);
-              return;
-            }
-
-            conn.updateWithParams("UPDATE accounts SET balance = balance + ? WHERE id = ?", new JsonArray().add(amount).add(toAccountId), update2 -> {
-              if (update2.failed()) {
-                rollbackAndReturn(conn, update2.cause(), handler);
-                return;
-              }
-
-              commit(conn, handler);
-            });
-          });
+          commit(conn, handler);
         });
       });
+
     });
   }
 

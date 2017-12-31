@@ -40,13 +40,11 @@ public class MainVerticle extends AbstractVerticle {
     app.route()
       .handler(UserSessionHandler.create(authProvider));
 
-    // TODO: (REFACTOR #13) create a callback route
-
-    // TODO: (REFACTOR #13) protect all handlers from this point forward
+//    Route callback = app.route("/callback");
+//    app.route().handler(OAuth2AuthHandler.create(authProvider).setupCallback(callback));
 
     app.post("/account")
-      // TODO: (REFACTOR #9) validate the input body
-      // validate the input data
+      .handler(MainVerticle::jsonBody)
       .handler(ctx -> {
         try {
           // save the parsed input in the request context
@@ -69,8 +67,8 @@ public class MainVerticle extends AbstractVerticle {
           }
         });
       })
-      // TODO: (REFACTOR #9) handle the last as a 202 created response
-      ;
+    .handler(MainVerticle::created)
+    ;
 
     app.get("/account/:id")
       // validate the input
@@ -119,9 +117,15 @@ public class MainVerticle extends AbstractVerticle {
         }
       })
       .handler(ctx -> {
-        // TODO: (REFACTOR #10) use the service proxy with the variable initialBalance from the context
-        // On success, put the response on a context under the name "created" and handle it
-        // to the next handler
+        transactionService.createTransaction(ctx.get("source"), ctx.get("target"), ctx.get("amount"), createTransaction -> {
+          if (createTransaction.failed()) {
+            ctx.fail(createTransaction.cause());
+          } else {
+            ctx
+              .put("created", createTransaction.result())
+              .next();
+          }
+        });
       })
       .handler(MainVerticle::created);
 

@@ -1,5 +1,7 @@
 package com.acme.transaction;
 
+import com.acme.account.AccountService;
+
 import io.vertx.core.DeploymentOptions;
 import io.vertx.core.Vertx;
 import io.vertx.core.json.JsonObject;
@@ -24,9 +26,7 @@ public class TransactionServiceTest {
     // create a vertx instance
     vertx = Vertx.vertx();
 
-    // TODO: (REFACTOR #8) mock the account service
-    // create an eventbus consumer on the default address
-    // always reply with a empty JsonObject response
+    vertx.eventBus().consumer(AccountService.DEFAULT_ADDRESS, message -> message.reply(new JsonObject()));
 
     // deploy the current verticle
     vertx.deployVerticle(
